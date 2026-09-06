@@ -1,0 +1,27 @@
+# Local secrets, state, original firmware, recordings and environments
+.private/
+.venv/
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+*.pem
+*.der
+*.key
+*.csr
+*.srl
+*.sqlite*
+*.db
+*.wav
+*.aiff
+*.log
+*.backup*
+config.json
+device.json
+pocket-*.json
+.pio/
+.platformio/
+dist/
+build/
+.DS_Store

@@ -1,0 +1,14 @@
+{
+  "bind": "127.0.0.1",
+  "port": 8643,
+  "hermes_url": "http://127.0.0.1:8642",
+  "hermes_key": "REPLACE_WITH_EXISTING_HERMES_API_KEY",
+  "device_key": "REPLACE_WITH_GENERATED_DEVICE_KEY",
+  "whisper_model": "tiny.en",
+  "language": "en",
+  "retention_days": 7,
+  "max_turns": 10000,
+  "max_reply_chars": 4000,
+  "message_queue": false,
+  "queue_capacity": 32
+}

@@ -1,0 +1,10 @@
+{
+  "ssid": "YOUR_WIFI_SSID",
+  "wifi_password": "REPLACE_WIFI_PASSWORD",
+  "host": "bridge.example.invalid",
+  "port": 8643,
+  "tls_name": "bridge.example.invalid",
+  "device_key": "REPLACE_WITH_GENERATED_DEVICE_KEY",
+  "server_sha256": "REPLACE_WITH_GENERATED_CERTIFICATE_SHA256",
+  "persist_history": false
+}

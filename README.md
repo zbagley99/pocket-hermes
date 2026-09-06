@@ -1,0 +1,160 @@
+# Pocket Hermes for M5StickS3
+
+A push-to-talk MicroPython terminal: hold a button, speak, and read a short,
+scrollable reply. A private Python HTTPS bridge transcribes audio locally and
+passes text to your dedicated Hermes agent profile.
+
+**Hardware baseline:** M5StickS3 with UiFlow2 2.4.8. M5StickC, C Plus and C Plus2
+are not validated targets; this is not universal M5Stick firmware. The S3 has
+8 MB PSRAM, a microphone and a 135×240 display
+([hardware documentation](https://docs.m5stack.com/en/core/StickS3)). See
+[hardware validation](docs/HARDWARE.md) before deploying to another model.
+
+## Repository layout
+
+```text
+device/                 MicroPython application and shared config validation
+bridge/                 HTTPS adapter and private-runtime initializer
+scripts/                USB deployment, restore, profile setup, release checks
+config/                 Placeholder-only configuration examples
+profile/                Generic Hermes instruction templates
+tests/                  Host tests with mocked hardware and upstream agent
+docs/                   Setup, hardware support and security review
+.github/workflows/      Tests, release checks and dependency audit
+.private/               Ignored local credentials, backups and runtime data
+dist/                   Ignored, checked source archives
+```
+
+## Setup
+
+Use Python 3.11 or 3.12 on your computer and bridge host, plus OpenSSL on the
+bridge host. Install into a new virtual environment:
+
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements-bootstrap.txt
+.venv/bin/python -m pip install -r requirements.txt
+```
+
+On the bridge host install `requirements-bridge.txt` instead. Configure a
+**dedicated Hermes profile** with its authenticated Sessions API listening on
+`127.0.0.1:8642`. Configure its model/provider and restrict its tools yourself;
+the initializer deliberately does not change Hermes settings or start services.
+See the [Hermes API documentation](https://hermes-agent.nousresearch.com/docs/user-guide/features/api-server/).
+
+Create a new runtime directory, replacing `BRIDGE_LAN_IP` with an interface
+address on the bridge host that the Stick can reach:
+
+```sh
+.venv/bin/python bridge/install.py --root .private/bridge \
+  --host BRIDGE_LAN_IP --bind BRIDGE_LAN_IP
+```
+
+Enter the existing Hermes API key at the hidden prompt. The initializer creates
+a separate random device key, a TLS certificate and its exact SHA-256 pin. It
+refuses to overwrite an existing runtime. Without `--bind`, it listens only on
+localhost. Keep ports private and restrict the bridge port to trusted devices
+in your host firewall.
+
+If the bridge is on another computer, transfer its generated device.json file
+through a trusted encrypted channel to your provisioning computer. Only the
+device key is in that file; the full Hermes API key stays on the bridge.
+Example field names are in [config/](config/); placeholders are rejected.
+
+Start the bridge from the project checkout:
+
+```sh
+.venv/bin/python bridge/server.py --root .private/bridge
+```
+
+The first start downloads speech model weights. The bridge host needs internet
+for that download and whatever access your Hermes model/tools need. For a
+persistent Linux service see [setup details](docs/SETUP.md).
+
+Connect the Stick over USB. Import the generated private config into this clone;
+setup prompts for Wi-Fi if needed and auto-selects a single connected USB port:
+
+```sh
+.venv/bin/python scripts/local.py setup --config .private/bridge/device.json
+.venv/bin/python scripts/local.py check
+.venv/bin/python scripts/local.py deploy
+.venv/bin/python scripts/local.py smoke
+```
+
+Pass `--port YOUR_SERIAL_PORT` to setup if multiple USB devices are connected.
+All machine-specific settings stay in ignored `.private/local.json` and
+`.private/provisioning/device.json`; source edits are unnecessary. For a remote
+bridge, pass the securely transferred file path to `--config`.
+
+Deployment changes startup files on the existing UiFlow firmware; it does not
+reflash the board. Original startup files are saved under
+`.private/devices/DEVICE_ID/`. Existing on-device configuration is preserved;
+pass `--replace-config` to `scripts/local.py deploy` to rotate the token/pin or replace saved Wi-Fi settings.
+Use one configuration/runtime/profile per person. Devices that share a runtime
+and token share conversation history and agent authority.
+
+## Controls
+
+- Hold A to record; release to send. Maximum 30 seconds; speaker stays off.
+- Tap A/B to scroll down/up. Double A jumps to earlier requests; double B follows new text.
+- Hold B for Wi-Fi setup on compatible firmware. On the tested UiFlow build, use USB: rerun local setup with `--wifi`, then deploy with `--replace-config`. The device displays this guidance rather than starting an unsecured access point.
+- Hold A+B to start a new chat after the current request finishes. Old Hermes chats remain.
+- Hold B during startup to choose the UiFlow menu on the next boot.
+
+The optional `smoke` command tests the uploaded firmware against a temporary
+HTTPS endpoint on your computer. It uses synthetic audio, does not contact Hermes,
+and leaves saved device credentials unchanged. Your firewall must allow the
+Stick to reach the computer. OpenSSL is required for this test.
+
+Pending IDs survive resets so uncertain actions are checked rather than
+replayed. Device history persistence is **off by default**; setting
+`persist_history` to `true` saves the last 12 turns in readable flash.
+Bridge content expires after seven days by default, on startup/result access;
+Hermes and its model provider have separate retention. See [SECURITY.md](SECURITY.md).
+
+To restore this device's backed-up startup files:
+
+```sh
+.venv/bin/python scripts/local.py restore
+```
+
+Restore does not erase credentials or history. See [setup details](docs/SETUP.md)
+for retirement and migration of backups from earlier installations.
+
+## Optional offline replies and inbox
+
+Enable `message_queue: true` in the bridge's private configuration (or initialize
+with `--message-queue`) to keep requests and replies on the Pi while the Stick is
+off. No additional broker is needed. After **Saved on Pi / power off OK**, the
+device can be switched off while Hermes works. Unread replies appear on reconnect.
+
+Double B opens the inbox in this mode. Tap A/B to navigate, hold A to open a
+message or its actions, and hold B to go back. **Continue this chat** restores
+that message's conversation; **Mark read** acknowledges it; **Start new chat**
+keeps other replies available. Opening a reply alone does not mark it read.
+
+Queue mode defaults to off and requires updated bridge and device code. The
+default capacity is 32 pending messages; reply retention remains seven days.
+See [queue setup, controls and recovery](docs/MESSAGE_QUEUE.md).
+
+## Development and sharing
+
+```sh
+.venv/bin/python -m unittest discover -s tests -v
+.venv/bin/python scripts/check_release.py
+.venv/bin/python scripts/check_release.py --export dist/pocket-hermes-source.zip
+```
+
+Share the checked ZIP, not the whole working directory. The explicit
+`release-manifest.json` excludes local data even if ignore rules change. Add
+new intended source files to that manifest. The scanner also checks any tracked
+Git files against it and compares release contents against local config values
+without printing those values. These checks supplement manual review; they
+cannot prove the absence of every possible kind of PII.
+
+Read the [security review](docs/SECURITY_REVIEW.md) for findings, fixes and
+remaining limitations, and [CONTRIBUTING.md](CONTRIBUTING.md) for changes.
+
+## License
+
+[MIT](LICENSE), using the [standard MIT license text](https://opensource.org/license/mit). Third-party firmware, dependencies and model weights are licensed separately.
