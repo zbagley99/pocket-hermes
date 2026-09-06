@@ -27,8 +27,37 @@ dist/                   Ignored, checked source archives
 
 ## Setup
 
+### 1. Install UiFlow2 on the StickS3
+
+You need an **M5StickS3**, a USB-C **data** cable, and a 2.4 GHz Wi-Fi network
+that can reach your bridge host. If the Stick already runs UiFlow2 **2.4.8**,
+continue to step 2. Flashing replaces the current firmware and can erase device
+files; save anything you need before proceeding. Pocket's later startup backup
+does not back up the firmware you replace here.
+
+1. Download and open [M5Burner for your computer](https://docs.m5stack.com/en/uiflow/m5burner/intro).
+2. Find the **StickS3 UiFlow2** firmware entry and download version **2.4.8**,
+   the version tested with this project. Other versions require the
+   [hardware validation checks](docs/HARDWARE.md).
+3. Connect the Stick by USB. Hold its **side reset button** until the internal
+   green LED flashes to enter download mode.
+4. Click **Burn** for the downloaded firmware, select the Stick's USB serial
+   port, then click **Start**.
+5. Enter the Wi-Fi settings requested by M5Burner. Set **Boot Option** to
+   **Show startup menu and network setup**, then click **Next** to flash.
+6. Wait for the successful burn message, reset the Stick, and confirm that the
+   UiFlow startup screen appears. Close M5Burner and any serial terminal before
+   running this project's deployment commands.
+
+The [official StickS3 flashing guide](https://docs.m5stack.com/en/uiflow2/sticks3/program)
+includes screenshots. Pocket is uploaded over USB in step 4 below. Its setup
+prompts for Wi-Fi separately from the settings saved by M5Burner.
+
+### 2. Prepare the computer and bridge host
+
 Use Python 3.11 or 3.12 on your computer and bridge host, plus OpenSSL on the
-bridge host. Install into a new virtual environment:
+bridge host. Open a terminal in this repository's directory and install into a
+new virtual environment:
 
 ```sh
 python3 -m venv .venv
@@ -36,11 +65,13 @@ python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
 ```
 
-On the bridge host install `requirements-bridge.txt` instead. Configure a
-**dedicated Hermes profile** with its authenticated Sessions API listening on
-`127.0.0.1:8642`. Configure its model/provider and restrict its tools yourself;
-the initializer deliberately does not change Hermes settings or start services.
-See the [Hermes API documentation](https://hermes-agent.nousresearch.com/docs/user-guide/features/api-server/).
+On the bridge host install `requirements-bridge.txt` instead. For Hermes setup,
+follow the [official Hermes documentation](https://hermes-agent.nousresearch.com/docs/user-guide/features/api-server/).
+This project expects a **dedicated Hermes profile** with its authenticated
+Sessions API listening on `127.0.0.1:8642`. The initializer does not change
+Hermes settings or start services.
+
+### 3. Initialize and start the Pocket bridge
 
 Create a new runtime directory, replacing `BRIDGE_LAN_IP` with an interface
 address on the bridge host that the Stick can reach:
@@ -71,15 +102,22 @@ The first start downloads speech model weights. The bridge host needs internet
 for that download and whatever access your Hermes model/tools need. For a
 persistent Linux service see [setup details](docs/SETUP.md).
 
-Connect the Stick over USB. Import the generated private config into this clone;
-setup prompts for Wi-Fi if needed and auto-selects a single connected USB port:
+### 4. Install Pocket on the Stick
+
+Keep the bridge running. Connect the Stick over USB and let it boot normally
+into UiFlow. Import the generated private config into this clone; setup prompts
+for Wi-Fi if needed and auto-selects a single connected USB port:
 
 ```sh
 .venv/bin/python scripts/local.py setup --config .private/bridge/device.json
 .venv/bin/python scripts/local.py check
 .venv/bin/python scripts/local.py deploy
-.venv/bin/python scripts/local.py smoke
 ```
+
+Deployment restarts the Stick into Pocket and reports that startup and the
+authenticated bridge health check passed. Hold **A**, say a short sentence,
+then release it and wait for a reply. The first request may wait while the
+bridge downloads and loads its speech model.
 
 Pass `--port YOUR_SERIAL_PORT` to setup if multiple USB devices are connected.
 All machine-specific settings stay in ignored `.private/local.json` and
@@ -101,7 +139,13 @@ and token share conversation history and agent authority.
 - Hold A+B to start a new chat after the current request finishes. Old Hermes chats remain.
 - Hold B during startup to choose the UiFlow menu on the next boot.
 
-The optional `smoke` command tests the uploaded firmware against a temporary
+For an optional USB/network check after installation, run:
+
+```sh
+.venv/bin/python scripts/local.py smoke
+```
+
+The `smoke` command tests the uploaded firmware against a temporary
 HTTPS endpoint on your computer. It uses synthetic audio, does not contact Hermes,
 and leaves saved device credentials unchanged. Your firewall must allow the
 Stick to reach the computer. OpenSSL is required for this test.

@@ -36,10 +36,14 @@ Host value. The initializer makes both equal. Use lowercase hex for the pin.
 
 ## Configure a fresh clone
 
-The prerequisites are a StickS3 with UiFlow2, a USB data cable, Python 3.11/3.12,
-a reachable bridge host, and a dedicated authenticated Hermes Sessions API.
-Install the declared dependencies, initialize the bridge as described in README,
-and securely transfer its generated device.json to the USB computer if needed.
+The prerequisites are a StickS3 with UiFlow2 2.4.8, a USB data cable, Python
+3.11/3.12, a reachable bridge host, and a dedicated authenticated Hermes Sessions
+API. Start with the [StickS3 firmware installation steps](../README.md#1-install-uiflow2-on-the-sticks3)
+if the board needs UiFlow2. For Hermes setup, use the
+[official Hermes documentation](https://hermes-agent.nousresearch.com/docs/user-guide/features/api-server/).
+Then install the declared dependencies, initialize the bridge as described in
+README, and securely transfer its generated device.json to the USB computer if
+needed.
 
 Run `python scripts/local.py setup --config PATH_TO_DEVICE_JSON`. Missing Wi-Fi
 credentials are prompted locally; passwords are hidden. A single USB port is
